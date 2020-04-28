@@ -10,9 +10,9 @@
 #include "llvm/IR/Instructions.h"
 
 namespace   {
-    struct Proj : public llvm::ModulePass   {
+    struct FuncClone : public llvm::ModulePass   {
         static char ID;
-        Proj() : llvm::ModulePass(ID)   {}
+        FuncClone() : llvm::ModulePass(ID)   {}
 
         virtual bool runOnModule(llvm::Module &m)   {
             llvm::ConstantInt* const_int32_7 = llvm::ConstantInt::get(m.getContext(), llvm::APInt(32, llvm::StringRef("5"), 10));
@@ -39,5 +39,5 @@ llvm::GlobalValue::ExternalLinkage, 0, "global");
     };
 }
 
-char Proj::ID = 0;
-static llvm::RegisterPass<Proj> X("proj", "Custom Pass", false, false);
+char FuncClone::ID = 0;
+static llvm::RegisterPass<FuncClone> X("func_clone", "Function Cloning Pass", false, false);
