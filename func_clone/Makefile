@@ -10,7 +10,6 @@
 LEVEL = .
 DIRS = lib 
 EXTRA_DIST = include
-
 #
 # Include the Master Makefile that knows how to build all.
 #
@@ -19,6 +18,4 @@ include $(LEVEL)/Makefile.common
 updateDocs :
 	rm -rf docs
 	PROJ_SRC_ROOT=$(PROJ_SRC_ROOT) doxygen $(PROJ_SRC_ROOT)/Doxyfile 2>/dev/null > /dev/null
-
-
 
