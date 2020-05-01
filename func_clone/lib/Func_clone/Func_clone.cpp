@@ -13,13 +13,29 @@
 #include "llvm/Transforms/Utils/ValueMapper.h"
 #include "llvm/ADT/Twine.h"
 
+/* Func_clone.cpp - LLVM Function Cloning Pass for machines with no branch
+ * prediction hardware. The pass clones all non-library functions that start
+ * with the letter 'p' and modifies their return behavior to directly branch
+ * back to their calling point.
+ *
+ * This work is for the ENEE 645 Project for Spring 2020
+ *
+ * Authors: Hunter Kippen, Jacob Young
+ *
+ */
+
 namespace   {
     struct FuncClone : public llvm::ModulePass   {
         static char ID;
         unsigned cloneCount;
 
         FuncClone() : llvm::ModulePass(ID)   { cloneCount = 0; }
-
+        
+        /* cloningPass - This function constructs a clone of the passed in
+         * function and renames it to reflect its status as a clone.
+         *
+         * returns: llvm::Function* - The function pointer to the clone.
+         */
         llvm::Function *cloningPass(const llvm::Function *F) {
             llvm::ClonedCodeInfo codeInfo;
             llvm::ValueToValueMapTy VMap;
@@ -34,6 +50,12 @@ namespace   {
             return clone;
         }
         
+        /* modifyClone - This function takes the clone function pointer and
+         * modifies the return instruction to first store to a global, and
+         * call the direct branch function.
+         *
+         * returns: bool - Whether the function has a return value
+         */
         bool modifyClone(llvm::Function *F, llvm::GlobalVariable *global) {
             bool hasRetVal = false;
             for (llvm::inst_iterator I = llvm::inst_begin(F), E = llvm::inst_end(F); I != E; ++I)   {
@@ -51,6 +73,10 @@ namespace   {
             return hasRetVal;
         }
         
+        /* getInstructionCount - This function finds the number of instructions
+         * that are contained in a function. This is useful for distinguishing
+         * declared from defined functions.
+         */
         unsigned getInstructionCount(llvm::Function* F) const {
             llvm::inst_iterator I = llvm::inst_begin(F), E = llvm::inst_end(F);
             unsigned NumInstrs = std::distance(I, E); 
@@ -67,23 +93,16 @@ namespace   {
             gvar_int32_global->setAlignment(4);
             gvar_int32_global->setInitializer(const_int32_7);
             /* loop through instructions to find call sites */
-            llvm::errs() << "Proj: ";
-            llvm::errs().write_escaped(m.getModuleIdentifier()) << '\n';
-            llvm::errs() << gvar_int32_global->getInitializer()->getUniqueInteger() << '\n';
             for(llvm::Module::iterator Fb = m.begin(), Fe = m.end(); Fb != Fe; ++Fb)    {
                 llvm::Function *F = llvm::dyn_cast<llvm::Function>(&*Fb);
                 for (llvm::inst_iterator I = llvm::inst_begin(F), E = llvm::inst_end(F); I != E; ++I)   {
                     if (llvm::CallInst* callInst = llvm::dyn_cast<llvm::CallInst>(&*I)) {
-                        llvm::errs() << *callInst << "\n";
                         /* Call site found: Check if there's a calling fn */
                         llvm::Function *Callee = callInst->getCalledFunction();
                         if (Callee && Callee->getName()[0] == 'p' &&
                                 getInstructionCount(Callee) != 0) {
                             /* clone the found function */
-                            llvm::errs() << Callee->getName() << "\n";
-                            llvm::errs() << getInstructionCount(Callee) << "\n";
                             llvm::Function *clone = cloningPass(Callee);
-                            llvm::errs() << clone->getName() << "\n";
                             m.getFunctionList().push_front(clone);
                             bool hasRetVal = modifyClone(clone, gvar_int32_global);
                             if (hasRetVal) {
@@ -93,12 +112,12 @@ namespace   {
                                 callInst->replaceAllUsesWith(loadGlobal);
                                 --I; // Reset iterator so we don't skip instructions.
                             }
+                            /* replace call with a call to the clone */
                             callInst->setCalledFunction(clone);
                         }
                     }
                 }
             }
-            llvm::errs() << gvar_int32_global->getInitializer()->getUniqueInteger() << '\n';
             return true; // Module is always modified since we create a global.
         }
 
